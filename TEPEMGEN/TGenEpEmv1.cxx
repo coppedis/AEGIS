@@ -89,7 +89,11 @@ TGenEpEmv1::TGenEpEmv1():
   fYMin(-100.), fYMax(100.),
   fPhiMin(0.), fPhiMax(360.),
   fPtMin(0.), fPtMax(1.e10),
-  fTimeOrigin(0.)
+  fTimeOrigin(0.),
+  fXSection(-1.),
+  fXSectionEps(1e-2),
+  fMinXSTest(1000),
+  fMaxXSTest(10000000)
 {
   // Default constructor
   for (Int_t i = 0; i < 3; ++i) {
@@ -115,7 +119,45 @@ void TGenEpEmv1::Init()
   if (fPtMin == 0) fPtMin = 1.E-04; // avoid zero pT
   Initialize(fYMin, fYMax, fPtMin, fPtMax);
   fEvent = 0;
+  //
+  // calculate XSection
+  double err = 0;
+  fXSection = CalcXSection(fXSectionEps,fMinXSTest,fMaxXSTest,err);
+  if (fXSection<=0 || err/fXSection>fXSectionEps) {
+    abort();
+  }
+  fXSectionEps = err/fXSection;
 }
+
+//____________________________________________________________
+double TGenEpEmv1::CalcXSection(double eps, int triMin, int triMax, double& err)
+{
+  if (eps<1e-4) {
+    eps = 1e-4;
+  }
+  int ngen = 0;
+  printf("Estimating x-section with min.relative precision of %f and min/max test: %d/%d\n",
+	 eps,triMin,triMax);
+  double yElectron,yPositron,xElectron,xPositron,phi12,weight;
+  double xSect = -1;
+  err = -1;
+  //
+  do {
+    TEpEmGen::GenerateEvent(fYMin,fYMax,fPtMin,fPtMax,yElectron,yPositron,xElectron,xPositron,phi12,weight);
+    if (++ngen>triMin) { // ensure min number of tests
+      xSect = TEpEmGen::GetXsection()*1000;
+      err = TEpEmGen::GetDsection()*1000;
+    }
+  } while(!((xSect>0 && err/xSect<eps) || ngen>triMax));
+  //
+  if (xSect<=0) {
+    printf("Failed to estimate X-section after %d trials\n",ngen);
+    abort();
+  }
+  printf("X-section = %e with %e error after %d trials",xSect,err,ngen);
+  return xSect;
+}
+
 
 //____________________________________________________________
 void TGenEpEmv1::GenerateEvent()

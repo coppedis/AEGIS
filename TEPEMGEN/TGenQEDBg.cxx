@@ -89,12 +89,8 @@ ClassImp(TGenQEDBg);
 
 TGenQEDBg::TGenQEDBg()
 :  fLumi(0)
-  ,fXSection(0)
-  ,fXSectionEps(1e-2)
   ,fIntTime(0)
   ,fPairsInt(-1)
-  ,fMinXSTest(1e3)
-  ,fMaxXSTest(1e7)
 {
 }
 
@@ -118,27 +114,9 @@ void TGenQEDBg::Init()
   TGenEpEmv1::Init();
   //
   fPairsInt = 0;
-  int ngen = 0;
-  printf("Estimating x-section with min.relative precision of %f and min/max test: %d/%d",
-	 fXSectionEps,int(fMinXSTest),int(fMaxXSTest));
-  //
-  double yElectron,yPositron,xElectron,xPositron,phi12,weight,err=0;
-  fXSection = -1;
-  do {
-    TEpEmGen::GenerateEvent(fYMin,fYMax,fPtMin,fPtMax,yElectron,yPositron,xElectron,xPositron,phi12,weight);
-    if (++ngen>fMinXSTest) { // ensure min number of tests
-      fXSection = GetXsection();
-      err = GetDsection();
-    }
-  } while(!((fXSection>0 && err/fXSection<fXSectionEps) || ngen>fMaxXSTest));
-  //
-  if (fXSection<=0) {
-    printf("X-section = %e after %d trials, cannot generate",fXSection,ngen);
-    abort();
-  }
-  fPairsInt = fXSection*1e-21*fLumi*fIntTime; // xsestion is in kbarn!
-  printf("Estimated x-secion: %e+-%ekb in %d tests, <Npairs>=%e per %e time interval",
-	 fXSection,err,ngen,fPairsInt,fIntTime);
+  fPairsInt = fXSection*1e-24*fLumi*fIntTime; // xsestion is in barn!
+  printf("Estimated x-secion: %e+-%eb, <Npairs>=%e per %e time interval",
+	 fXSection,fXSectionEps*fXSection,fPairsInt,fIntTime);
   //
 }
 
@@ -191,12 +169,4 @@ void TGenQEDBg::SetLumiIntTime(double lumi, double intTime)
   fLumi = lumi;
   fIntTime = intTime;
   //
-}
-
-//__________________________________________________________
-void TGenQEDBg::SetMinMaxXSTest(double mn,double mx)
-{
-  // set min,max number of generator calls for xsection estimates
-  fMinXSTest = mn>100 ? mn : 100.;
-  fMaxXSTest = mx>mx ? mx : mx+100.;
 }

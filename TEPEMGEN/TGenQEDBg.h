@@ -27,25 +27,17 @@ public:
   //
   Double_t  GetLuminosity()       const {return fLumi;}
   Double_t  GetIntegrationTime()  const {return fIntTime;}
-  Double_t  GetXSection()         const {return fXSection;}
-  Double_t  GetXSectionEps()      const {return fXSectionEps;}
   Double_t  GetMeanNPairs()       const {return fPairsInt;}
   //
   void      SetLumiIntTime(double lumi, double intTime);
-  void      SetXSectionEps(double eps=1e-2)  {fXSectionEps = eps>0 ? eps:1e-2;}
-  void      SetMinMaxXSTest(double mn,double mx);
   //
  protected:
   TGenQEDBg(const TGenQEDBg & gen);
   TGenQEDBg & operator=(const TGenQEDBg & gen);
   //
   Double_t   fLumi;         // beam luminsity
-  Double_t   fXSection;     // estimated cross section in k-barns
-  Double_t   fXSectionEps;  // error with wich Xsection is calculated
   Double_t   fIntTime;      // integration time in seconds
   Double_t   fPairsInt;     // estimated average number of pairs in IntTime
-  Double_t   fMinXSTest;    // min number of generator calls for Xsection estimate
-  Double_t   fMaxXSTest;    // max number of generator calls for Xsection estimate
 
   //
   ClassDef(TGenQEDBg,1) // Generator e+e- pair background from PbPb QED interactions
