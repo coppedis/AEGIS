@@ -15,14 +15,25 @@ include(${ROOT_USE_FILE})
 link_directories($ENV{PYTHIA6_ROOT}/lib)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/.)
-ROOT_GENERATE_DICTIONARY(G__TEPEMGEN TGenQEDBg.h TGenEpEmv1.h TEpEmGen.h TEcommon.h LINKDEF TEPEMGENLinkDef.h)
+
+set(HEADERS 
+  TGenQEDBg.h TGenEpEmv1.h TEpEmGen.h TEcommon.h)
+
+ROOT_GENERATE_DICTIONARY(G__TEPEMGEN ${HEADERS} LINKDEF TEPEMGENLinkDef.h)
 
 #---Create a shared library with geneated dictionary
 add_library(TEPEMGEN SHARED TGenQEDBg.cxx TGenEpEmv1.cxx TEpEmGen.cxx epemgen.f diffcross.f dtrint.f G__TEPEMGEN.cxx)
 target_link_libraries(TEPEMGEN ${ROOT_LIBRARIES} pythia6 MICROCERN)
 
+
+set_target_properties(TEPEMGEN
+  PROPERTIES
+  PUBLIC_HEADER "${HEADERS}" )
+
+
 install(TARGETS TEPEMGEN
-        LIBRARY DESTINATION lib)
+        LIBRARY DESTINATION lib
+        PUBLIC_HEADER DESTINATION include)
 
 if (${ROOT_VERSION} VERSION_GREATER "6.0")
    install(
