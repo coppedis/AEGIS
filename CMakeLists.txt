@@ -6,6 +6,8 @@ add_subdirectory(MICROCERN)
 
 add_subdirectory(TEPEMGEN)
 
+add_subdirectory(GeneratorCosmics)
+
 if (DEFINED ENV{HIJING_ROOT})
    add_subdirectory(THijing)
 endif (DEFINED ENV{HIJING_ROOT})
