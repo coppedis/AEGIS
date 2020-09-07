@@ -84,6 +84,9 @@ class GeneratorCosmics : public TGenerator
   bool getXZatOrigin(float& xpos, float& zpos, const float r[3], const float p[3], int q) const;
 
  private:
+
+  bool detectField();
+  
   GenParamType mParam = GenParamType::ParamTPC;
   std::unique_ptr<TF1> mGenFun;
 
