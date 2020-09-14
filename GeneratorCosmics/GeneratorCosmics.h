@@ -16,8 +16,8 @@
 // Origin: andrea.dainese@lnl.infn.it
 // Modifications for O2: ruben.shahoyan@cern.ch
 
-#include "TGenerator.h"
-#include "TClonesArray.h"
+#include <TGenerator.h>
+#include <TClonesArray.h>
 #include <TF1.h>
 
 // Generates requested number of cosmic muons per call, requiring them to pass through
@@ -72,19 +72,18 @@ class GeneratorCosmics : public TGenerator
     mXAcc = x < 1 ? 1. : x;
     mZAcc = z < 1 ? 1. : z;
   }
-  void requireITS0() { requireXZAccepted(2.7, 27.1); }
-  void requireITS1() { requireXZAccepted(3.5, 27.1); }
-  void requireITS2() { requireXZAccepted(4.3, 27.1); }
-  void requireITS3() { requireXZAccepted(19.8, 84.3); }
-  void requireITS4() { requireXZAccepted(24.8, 84.3); }
-  void requireITS5() { requireXZAccepted(34.6, 147.5); }
-  void requireITS6() { requireXZAccepted(39.5, 147.5); }
+  void requireITS0() { requireXZAccepted(2.23, 15.56); }
+  void requireITS1() { requireXZAccepted(3.00, 15.56); }
+  void requireITS2() { requireXZAccepted(3.78, 15.56); }
+  void requireITS3() { requireXZAccepted(19.55, 43.77); }
+  void requireITS4() { requireXZAccepted(24.54, 43.77); }
+  void requireITS5() { requireXZAccepted(34.38, 75.08); }
+  void requireITS6() { requireXZAccepted(39.33, 75.08); }
   void requireTPC() { requireXZAccepted(250, 250); }
 
   bool getXZatOrigin(float& xpos, float& zpos, const float r[3], const float p[3], int q) const;
 
  private:
-
   bool detectField();
   
   GenParamType mParam = GenParamType::ParamTPC;
