@@ -25,6 +25,24 @@ GeneratorCosmics::GeneratorCosmics() : TGenerator("GeneratorCosmics", "Generator
 }
 
 //-----------------------------------------------------------------------------
+bool GeneratorCosmics::detectField()
+{
+  //
+  auto fld = TGeoGlobalMagField::Instance()->GetField();
+  if (TVirtualMC::GetMC() && TVirtualMC::GetMC()->GetMagField()) {
+    fld = TVirtualMC::GetMC()->GetMagField();
+  }
+  if (fld) {
+    double r[3] = {0, 0, 0}, b[3] = {0, 0, 0};
+    fld->Field(r, b);
+    setBkG(b[2]);
+    return true;
+  }
+  return false;
+}
+
+
+//-----------------------------------------------------------------------------
 void GeneratorCosmics::GenerateEvent()
 {
   //
@@ -32,19 +50,8 @@ void GeneratorCosmics::GenerateEvent()
   constexpr int MuMinusPDG = 13, MuPlusPDG = -13;
   constexpr float MuMass = 0.1056583;
   //
-  if (!mFieldIsSet) {
-    auto fld = TGeoGlobalMagField::Instance()->GetField();
-    if (TVirtualMC::GetMC() && TVirtualMC::GetMC()->GetMagField()) {
-      fld = TVirtualMC::GetMC()->GetMagField();
-    }
-    if (fld) {
-      double r[3] = {0, 0, 0}, b[3] = {0, 0, 0};
-      fld->Field(r, b);
-      setBkG(b[2]);
-    }
-    else {
-      throw std::runtime_error("Failed to fetch magnetic field");
-    }
+  if (!mFieldIsSet && !detectField()) {
+    throw std::runtime_error("Failed to fetch magnetic field");
   }
   
   fParticles->Clear();
@@ -157,11 +164,12 @@ void GeneratorCosmics::Init()
       mGenFun.reset(new TF1("genFun", "x/(1.+(x/3.)*(x/3.))^1.", mPMin, mPMax));
       break;
   }
-
   printf("Cosmics generator configuration:\n");
   printf("Parameterization type: %d with %e < p < %e\n", int(mParam), mPMin, mPMax);
   printf("Tracks created at R=%.2f and requested to have |X|<%.2f  and |Z|<%.2f at Y=0\n", mROrigin, mXAcc, mZAcc); 
-  printf("Magnetic field %f\n", mBkG);
+  if (detectField()) {
+    printf("Magnetic field %f\n", mBkG);
+  }
   return;
 }
 
