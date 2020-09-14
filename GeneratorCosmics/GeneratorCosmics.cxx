@@ -13,8 +13,8 @@
 // Origin: andrea.dainese@lnl.infn.it
 // Modifications for O2: ruben.shahoyan@cern.ch
 
-#include <TParticle.h>
 #include <TRandom.h>
+#include <TParticle.h>
 #include <TVirtualMC.h>
 #include <TGeoGlobalMagField.h>
 #include "GeneratorCosmics.h"
@@ -53,10 +53,8 @@ void GeneratorCosmics::GenerateEvent()
   if (!mFieldIsSet && !detectField()) {
     throw std::runtime_error("Failed to fetch magnetic field");
   }
-  
-  fParticles->Clear();
+  fParticles->Clear();  
   int npart = 0;
-  std::unique_ptr<TParticle> part;
   //
   while (npart < mNPart) { // until needed numbe of muons generated
     int trials = 0;
@@ -138,11 +136,9 @@ void GeneratorCosmics::GenerateEvent()
       }
 
       auto etot = std::sqrt(MuMass * MuMass + ptot * ptot);
-      part = std::make_unique<TParticle>(pdg, 1, -1, -1, -1, -1, p[0], p[1], p[2], etot, r[0], r[1], r[2], 0);
+      fParticles->Add( new TParticle(pdg, 1, -1, -1, -1, -1, p[0], p[1], p[2], etot, r[0], r[1], r[2], 0) );
       break;
     } while (1);
-
-    fParticles->Add(part.get());
     npart++;
   }
 }
