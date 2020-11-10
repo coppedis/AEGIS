@@ -8,6 +8,8 @@ add_subdirectory(TEPEMGEN)
 
 add_subdirectory(GeneratorCosmics)
 
+add_subdirectory(GeneratorParam)
+
 if (DEFINED ENV{HIJING_ROOT})
    add_subdirectory(THijing)
 endif (DEFINED ENV{HIJING_ROOT})
