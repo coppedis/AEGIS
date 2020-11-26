@@ -10,6 +10,8 @@ add_subdirectory(GeneratorCosmics)
 
 add_subdirectory(GeneratorParam)
 
+add_subdirectory(GeneratorSlowNucleons)
+
 if (DEFINED ENV{HIJING_ROOT})
    add_subdirectory(THijing)
 endif (DEFINED ENV{HIJING_ROOT})
