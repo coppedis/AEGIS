@@ -12,6 +12,8 @@ add_subdirectory(GeneratorParam)
 
 add_subdirectory(GeneratorSlowNucleons)
 
+add_subdirectory(GeneratorSpectators)
+
 if (DEFINED ENV{HIJING_ROOT})
    add_subdirectory(THijing)
 endif (DEFINED ENV{HIJING_ROOT})
