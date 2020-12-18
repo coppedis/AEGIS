@@ -32,7 +32,7 @@ ClassImp(GeneratorSlowNucleons)
 
     GeneratorSlowNucleons::GeneratorSlowNucleons()
     : TGenerator("GeneratorParam", "GeneratorParam"), fCMS(0.), fMomentum(0.),
-      fBeta(0.), fPmax(0.), fCharge(0), fProtonDirection(1.), fTemperatureG(0.),
+      fBeta(0.), fPmax(10.), fCharge(0), fProtonDirection(1.), fTemperatureG(0.),
       fBetaSourceG(0.), fTemperatureB(0.), fBetaSourceB(0.), fNgp(0), fNgn(0),
       fNbp(0), fNbn(0), fDebug(0), fDebugHist1(0), fDebugHist2(0),
       fThetaDistribution(), fCosThetaGrayHist(), fCosTheta(),
@@ -247,10 +247,9 @@ void GeneratorSlowNucleons::GenerateSlow(Int_t charge, Double_t T,
      Three-momentum [GeV/c] is given back in q[3]
   */
 
-  // printf("Generating slow nuc. with: charge %d. temp. %1.4f, beta %f
-  // \n",charge,T,beta);
+  //printf("Generating slow nuc. with: charge %d. temp. %1.4f, beta %f \n",charge,T,beta);
 
-  Double_t m, pmax, p, f, phi;
+  Double_t m=0, pmax=0, p=0, f=0, phi=0;
   TDatabasePDG *pdg = TDatabasePDG::Instance();
   const Double_t kMassProton = pdg->GetParticle(kProton)->Mass();
   const Double_t kMassNeutron = pdg->GetParticle(kNeutron)->Mass();
@@ -315,8 +314,7 @@ void GeneratorSlowNucleons::GenerateSlow(Int_t charge, Double_t T,
 
 Double_t GeneratorSlowNucleons::Maxwell(Double_t m, Double_t p, Double_t T) {
   /* Relativistic Maxwell-distribution */
-  Double_t ekin;
-  ekin = TMath::Sqrt(p * p + m * m) - m;
+  Double_t ekin = TMath::Sqrt(p * p + m * m) - m;
   return (p * p * exp(-ekin / T));
 }
 

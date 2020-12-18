@@ -43,11 +43,11 @@ public:
   //    {AliGenerator::SetTarget(s, a, z);}
   virtual void SetProtonDirection(Float_t dir = 1.);
   virtual void SetCharge(Int_t c = 1) { fCharge = c; }
-  virtual void SetTemperature(Double_t t1 = 0.04, Double_t t2 = 0.004) {
+  virtual void SetTemperature(Float_t t1 = 0.04, Float_t t2 = 0.004) {
     fTemperatureG = t1;
     fTemperatureB = t2;
   }
-  virtual void SetBetaSource(Double_t b1 = 0.05, Double_t b2 = 0.) {
+  virtual void SetBetaSource(Float_t b1 = 0.05, Float_t b2 = 0.) {
     fBetaSourceG = b1;
     fBetaSourceB = b2;
   }
