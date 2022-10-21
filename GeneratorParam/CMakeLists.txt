@@ -14,12 +14,12 @@ include(${ROOT_USE_FILE})
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/.)
 
-set(HEADERS GeneratorParam.h GeneratorParamLibBase.h GeneratorParamMUONlib.h PythiaDecayerConfig.h)
+set(HEADERS GeneratorParam.h GeneratorParamLibBase.h GeneratorParamMUONlib.h GeneratorParamEMlib.h PythiaDecayerConfig.h)
 
 ROOT_GENERATE_DICTIONARY(G__GeneratorParam ${HEADERS} LINKDEF GeneratorParamLinkDef.h)
 
 #---Create a shared library with geneated dictionary
-add_library(GeneratorParam SHARED GeneratorParam.cxx GeneratorParamLibBase.cxx GeneratorParamMUONlib.cxx PythiaDecayerConfig.cxx G__GeneratorParam.cxx)
+add_library(GeneratorParam SHARED GeneratorParam.cxx GeneratorParamLibBase.cxx GeneratorParamMUONlib.cxx GeneratorParamEMlib.cxx PythiaDecayerConfig.cxx G__GeneratorParam.cxx)
 target_link_libraries(GeneratorParam ${ROOT_LIBRARIES})
 
 
