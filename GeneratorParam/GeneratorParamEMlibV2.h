@@ -21,7 +21,7 @@ public:
     kSigma0=7, kK0s=8, kDeltaPlPl=9, kDeltaPl=10, kDeltaMi=11, kDeltaZero=12,
     kRhoPl=13, kRhoMi=14, kK0star=15, kK0l=16, kLambda=17, kKPl=18, kKMi=19,
     kOmegaPl=20, kOmegaMi=21, kXiPl=22, kXiMi=23, kSigmaPl=24, kSigmaMi=25,
-    kDirectRealGamma=26, kDirectVirtGamma=27};
+    kDirectRealGamma=26, kDirectVirtGamma=27, kNParticles=28};
 
   enum CollisionSystem_t {kpp900GeV=0x000, kpp2760GeV=0x64, kpp7TeV=0xC8, kpPb=0x12C, kPbPb=0x190};
   

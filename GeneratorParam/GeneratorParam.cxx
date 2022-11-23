@@ -26,8 +26,6 @@
 #include <TPythia6Decayer.h>
 #include <TROOT.h>
 #include <TRandom.h>
-#include <TVirtualMC.h>
-// #include <TPythia8Decayer.h>
 #include <vector>
 
 #include "GeneratorParam.h"
@@ -43,7 +41,7 @@ ClassImp(GeneratorParam)
 GeneratorParam::GeneratorParam(Int_t npart,
                                const GeneratorParamLibBase *Library,
                                Int_t param, const char *tname)
-    : TGenerator("GeneratorParam", "GeneratorParam"), fNpart(npart) {
+    : TGenerator("GeneratorParam", "GeneratorParam"), fNpart(npart), fParam(param) {
   // Constructor using number of particles parameterisation id and library
   fName = "Param";
   fTitle = "Particle Generator using pT and y parameterisation";
@@ -152,12 +150,42 @@ void GeneratorParam::Init() {
     fdNdPhi->Delete();
   fdNdPhi = new TF1(name, "1+2*[0]*TMath::Cos(2*(x-[1]))", fPhiMin, fPhiMax);
   //
+  //
+  snprintf(name, 256, "pt-for-%s", GetName());
+  TF1 ptPara(name ,fPtParaFunc, 0, 15, 0);
+  snprintf(name, 256, "y-for-%s", GetName());
+  TF1 yPara(name, fYParaFunc, -6, 6, 0);
+#if ROOT_VERSION_CODE < ROOT_VERSION(5,99,0)
+  Float_t intYS  = yPara.Integral(fYMin, fYMax,(Double_t*) 0x0,1.e-6);
+  Float_t intPt0 = ptPara.Integral(0,15,(Double_t *) 0x0,1.e-6);
+  Float_t intPtS = ptPara.Integral(fPtMin,fPtMax,(Double_t*) 0x0,1.e-6);
+#else
+  Float_t intYS  = yPara.Integral(fYMin, fYMax,1.e-6);
+  Float_t intPt0 = ptPara.Integral(0,15,1.e-6);
+  Float_t intPtS = ptPara.Integral(fPtMin,fPtMax,1.e-6);
+#endif
+  Float_t phiWgt=(fPhiMax-fPhiMin)/TMath::TwoPi();    //TR: should probably be done differently in case of anisotropic phi...
+
+  //                                                                                                                                   // dN/dy| y=0
+  Double_t y1=0;
+  Double_t y2=0;
+
+  fdNdy0=fYParaFunc(&y1,&y2);
+
+  fYWgt  = intYS/fdNdy0;
+  if (fAnalog == kAnalog) {
+    fPtWgt = intPtS/intPt0;
+  } else {
+    fPtWgt = (fPtMax-fPtMin)/intPt0;
+  }
+  fParentWeight = fYWgt*fPtWgt*phiWgt/fNpart;
+  //
+  //
   // Initialize the decayer
   fDecayer->Init();
   // initialise selection of decay products
   InitChildSelect();
-  PythiaDecayerConfig decayerconfig;
-  decayerconfig.Init(fForceDecay);
+  fDecayerConfig->Init(fForceDecay);
 }
 
 void GeneratorParam::GenerateEvent() {
@@ -184,10 +212,11 @@ void GeneratorParam::GenerateEvent() {
   Int_t i, j;
   Double_t energy;
   Float_t time0;
-
+  Float_t  wgtp, wgtch;
   std::vector<bool> vFlags;
   std::vector<bool> vSelected;
   std::vector<int> vParent;
+  Double_t dummy;
 
   // array to store decay products
   static TClonesArray *particles;
@@ -214,6 +243,7 @@ void GeneratorParam::GenerateEvent() {
       // custom pdg codes to destinguish direct photons
       if ((pdg >= 220000) && (pdg <= 220001))
         pdg = 22;
+      fChildWeight=(fDecayerConfig->GetPartialBranchingRatio(pdg))*fParentWeight;
       TParticlePDG *particle = pDataBase->GetParticle(pdg);
       Float_t am = particle->Mass();
       gRandom->RndmArray(2, random);
@@ -235,7 +265,16 @@ void GeneratorParam::GenerateEvent() {
       ty = TMath::TanH(fYPara->GetRandom());
       //
       // pT
-      pt = fPtPara->GetRandom();
+      if (fAnalog == kAnalog) {
+        pt = fPtPara->GetRandom();
+        wgtp = fParentWeight;
+        wgtch = fChildWeight;
+      } else {
+        pt=fPtMin+random[1]*(fPtMax-fPtMin);
+        Double_t ptd=pt;
+        wgtp=fParentWeight*fPtParaFunc(& ptd, &dummy);
+        wgtch=fChildWeight*fPtParaFunc(& ptd, &dummy);
+      }
       xmt = sqrt(pt * pt + am * am);
       if (TMath::Abs(ty) == 1.) {
         ty = 0.;
@@ -365,9 +404,12 @@ void GeneratorParam::GenerateEvent() {
           //
           // Parent
           // --- For Exodus --------------------------------//
-          fParticles->Add(new TParticle(
-              pdg, ((decayed) ? 11 : 1), -1, -1, -1, -1, p[0], p[1], p[2],
-              energy, origin0[0], origin0[1], origin0[2], time0));
+    auto particle = new TParticle(
+          pdg, ((decayed) ? 11 : 1), -1, -1, -1, -1, p[0], p[1], p[2],
+          energy, origin0[0], origin0[1], origin0[2], time0
+          );
+    particle->SetWeight(wgtp);
+    fParticles->Add(particle);
           vParent[0] = nt;
           nt++;
           fNprimaries++;
@@ -387,7 +429,7 @@ void GeneratorParam::GenerateEvent() {
               auto kf = iparticle->GetPdgCode();
               auto ksc = iparticle->GetStatusCode();
               auto jpa = iparticle->GetFirstMother() + fIncFortran;
-
+        Double_t weight = iparticle->GetWeight();
               och[0] = origin0[0] + iparticle->Vx();
               och[1] = origin0[1] + iparticle->Vy();
               och[2] = origin0[2] + iparticle->Vz();
@@ -405,9 +447,13 @@ void GeneratorParam::GenerateEvent() {
               if (parentP->GetFirstDaughter() == -1)
                 parentP->SetFirstDaughter(nt);
               parentP->SetLastDaughter(nt);
-              fParticles->Add(new TParticle(kf, ksc, iparent, -1, -1, -1, pc[0],
+        auto particle = new TParticle(kf, ksc, iparent, -1, -1, -1, pc[0],
                                             pc[1], pc[2], ec, och0[0], och0[1],
-                                            och0[2], time0 + iparticle->T()));
+                                            och0[2], time0 + iparticle->T()
+              );
+        particle->SetWeight(weight * wgtch);
+              fParticles->Add(particle);
+
               vParent[i] = nt;
               nt++;
               fNprimaries++;
@@ -422,9 +468,11 @@ void GeneratorParam::GenerateEvent() {
       } else {
         // nodecay option, so parent will be tracked by GEANT (pions, kaons,
         // eta, omegas, baryons)
-        fParticles->Add(new TParticle(pdg, 1, -1, -1, -1, -1, p[0], p[1], p[2],
+  auto particle = new TParticle(pdg, 1, -1, -1, -1, -1, p[0], p[1], p[2],
                                       energy, origin0[0], origin0[1],
-                                      origin0[2], time0));
+                                      origin0[2], time0);
+  particle->SetWeight(wgtp);
+        fParticles->Add(particle);
         ipa++;
         fNprimaries++;
       }

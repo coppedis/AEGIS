@@ -92,6 +92,7 @@ public:
   // force decay type
   virtual void SetDeltaPt(Float_t delta = 0.01) { fDeltaPt = delta; }
   virtual void SetDecayer(TVirtualMCDecayer *decayer) { fDecayer = decayer; }
+  virtual void SetDecayerConfig(PythiaDecayerConfig *decayerconfig) {fDecayerConfig = decayerconfig; }
   virtual void SetForceGammaConversion(Bool_t force = kTRUE) {
     fForceConv = force;
   }
@@ -105,6 +106,8 @@ public:
     fPreserveFullDecayChain = preserve;
   } // Prevent flagging(/skipping) of decay daughter particles; preserves
     // complete forced decay chain
+
+  virtual void SetWeighting(Weighting_t flag = kAnalog) {fAnalog = flag;}
 
   virtual void Draw(const char *opt);
   TF1 *GetPt() { return fPtPara; }
@@ -157,6 +160,7 @@ protected:
   Bool_t fSelectAll = false; // Flag for transportation of Background while
                              // using SetForceDecay()
   TVirtualMCDecayer *fDecayer = 0; // ! Pointer to virtual decyer
+  PythiaDecayerConfig *fDecayerConfig = 0; // Pointer to decayer config
   Bool_t fForceConv = false;       // force converson of gammas
   Bool_t fKeepParent =
       false; //  Store parent even if it does not have childs within cuts
@@ -196,6 +200,13 @@ protected:
   Float_t fChildThetaMax = 0.;
   Float_t fChildPhiMin = 0.;
   Float_t fChildPhiMax = 0.;
+  Float_t fParentWeight = 1.;
+  Float_t fChildWeight = 1.;
+  Float_t fYWgt = 1.;
+  Float_t fPtWgt = 1.;
+  Float_t fdNdy0 = 1.;
+  Weighting_t fAnalog = kAnalog;
+  
   TArrayI fChildSelect; //! Decay products to be selected
   enum {
     kThetaRange = BIT(14),
@@ -211,7 +222,6 @@ private:
   GeneratorParam(const GeneratorParam &Param);
   GeneratorParam &operator=(const GeneratorParam &rhs);
 
-  ClassDef(GeneratorParam,
-           1) // Generator using parameterised pt- and y-distribution
+  ClassDef(GeneratorParam, 2) // Generator using parameterised pt- and y-distribution
 };
 #endif
