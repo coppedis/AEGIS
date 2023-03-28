@@ -19,7 +19,6 @@
 
 #include "PythiaDecayerConfig.h"
 #include <TClonesArray.h>
-#include <TLorentzVector.h>
 #include <TPDGCode.h>
 #include <TParticle.h>
 #include <TPythia6.h>
@@ -28,8 +27,8 @@
 ClassImp(PythiaDecayerConfig)
 
     PythiaDecayerConfig::PythiaDecayerConfig()
-    : TObject(), fDecay(kAll), fHeavyFlavour(kTRUE), fLongLived(kFALSE),
-      fPatchOmegaDalitz(0), fDecayerExodus(0), fPi0(1) {
+    : TVirtualMCDecayer(), fDecay(kAll), fHeavyFlavour(kTRUE), fLongLived(kFALSE),
+      fPatchOmegaDalitz(0), fDecayerExodus(nullptr), fPi0(1) {
   // Default Constructor
   for (Int_t i = 0; i < 501; i++)
     fBraPart[i] = 1.;
@@ -37,18 +36,21 @@ ClassImp(PythiaDecayerConfig)
 
 PythiaDecayerConfig::PythiaDecayerConfig(const PythiaDecayerConfig &decayer)
     : fDecay(kAll), fHeavyFlavour(kTRUE), fLongLived(kFALSE),
-      fPatchOmegaDalitz(0), fDecayerExodus(0), fPi0(1) {
+      fPatchOmegaDalitz(0), fDecayerExodus(nullptr), fPi0(1) {
   // Copy Constructor
   decayer.Copy(*this);
   for (Int_t i = 0; i < 501; i++)
     fBraPart[i] = 0.;
 }
 
-void PythiaDecayerConfig::Init(Decay_t decay) {
+void PythiaDecayerConfig::Init() {
+
+  if (fDecayerExodus){
+    fDecayerExodus->Init();
+  }
 
   // Switch on heavy flavor decays
   fPythia = TPythia6::Instance();
-  fDecay = decay;
   Int_t kc, i, j;
   Int_t heavy[14] = {411, 421, 431, 4122, 4132, 4232, 4332,
                      511, 521, 531, 5122, 5132, 5232, 5332};
@@ -897,6 +899,275 @@ Float_t PythiaDecayerConfig::GetLifetime(Int_t kf) {
   // Get branching ratio
   Int_t kc = fPythia->Pycomp(TMath::Abs(kf));
   return fPythia->GetPMAS(kc, 4) * 3.3333e-12;
+}
+
+Int_t PythiaDecayerConfig::ImportParticles(TClonesArray *particles)
+{
+   return fPythia->ImportParticles(particles,"All");
+}
+
+void PythiaDecayerConfig::ReadDecayTable()
+{
+   if (fDecayTableFile.IsNull()) {
+      printf("PythiaDeceayerConfig: Warning: ReadDecayTable: No file set\n");
+      return;
+   }
+   Int_t lun = 15;
+   fPythia->OpenFortranFile(lun,const_cast<char*>(fDecayTableFile.Data()));
+   fPythia->Pyupda(3,lun);
+   fPythia->CloseFortranFile(lun);
+}
+
+void PythiaDecayerConfig::Decay(Int_t idpart, TLorentzVector* p) {
+  if (!p) return;
+
+  Float_t energy = p->Energy();
+  Float_t theta  = p->Theta();
+  Float_t phi    = p->Phi();
+  
+  if(!fDecayerExodus) {
+    fPythia->Py1ent(0, idpart, energy, theta, phi);
+  } else {
+
+  // EXODUS decayer
+    fPythia->SetMSTU(10,1);
+    fPythia->SetP(1,5,p->M()) ;
+    if(idpart == 111){
+      fPythia->SetMDCY(fPythia->Pycomp(22) ,1, 0);
+      fPythia->Py1ent(0, idpart, energy, theta, phi);
+      PizeroDalitz();
+      fPythia->SetMDCY(fPythia->Pycomp(22) ,1, 1);
+    }
+    else if(idpart == 221){
+      fPythia->SetMDCY(fPythia->Pycomp(22) ,1, 0);
+      fPythia->Py1ent(0, idpart, energy, theta, phi);
+      EtaDalitz();
+      fPythia->SetMDCY(fPythia->Pycomp(22) ,1, 1);
+    }
+    else if(idpart == 113){
+      fPythia->Py1ent(0, idpart, energy, theta, phi);
+      RhoDirect();
+    }
+    else if(idpart == 223){
+      fPythia->SetMDCY(fPythia->Pycomp(111) ,1, 0);
+      fPythia->Py1ent(0, idpart, energy, theta, phi);
+      OmegaDirect();
+      OmegaDalitz();
+      fPythia->SetMDCY(fPythia->Pycomp(111) ,1, 1);
+    }
+    else if(idpart == 331){
+      fPythia->SetMDCY(fPythia->Pycomp(22) ,1, 0);
+      fPythia->SetMDCY(fPythia->Pycomp(223) ,1, 0);
+      fPythia->Py1ent(0, idpart, energy, theta, phi);
+      EtaprimeDalitz();
+      fPythia->SetMDCY(fPythia->Pycomp(223) ,1, 1);
+      fPythia->SetMDCY(fPythia->Pycomp(22) ,1, 1);
+    }
+    else if(idpart == 333){
+      fPythia->SetMDCY(fPythia->Pycomp(221) ,1, 0);
+      fPythia->SetMDCY(fPythia->Pycomp(111) ,1, 0);
+      fPythia->Py1ent(0, idpart, energy, theta, phi);
+      PhiDirect();
+      PhiDalitz();
+      fPythia->SetMDCY(fPythia->Pycomp(111) ,1, 1);
+      fPythia->SetMDCY(fPythia->Pycomp(221) ,1, 1);
+    }
+    else if(idpart == 443){
+      fPythia->Py1ent(0, idpart, energy, theta, phi);
+      JPsiDirect();
+    }  
+  }
+  fPythia->SetMSTU(10,2);
+  fPythia->GetPrimaries();
+}
+
+void PythiaDecayerConfig::PizeroDalitz(){
+  Int_t nt = fPythia->GetN();
+  for (Int_t i = 0; i < nt; i++) {
+    if (fPythia->GetK(i+1,2) != 111) continue;
+    Int_t fd = fPythia->GetK(i+1,4) - 1;
+    Int_t ld = fPythia->GetK(i+1,5) - 1;
+    if (fd < 0) continue;
+    if ((ld - fd) != 2) continue;
+    if ((fPythia->GetK(fd+1,2) != 22) || (TMath::Abs(fPythia->GetK(fd+2,2)) != 11) ) continue;
+    TLorentzVector pizero(fPythia->GetP(i+1,1), fPythia->GetP(i+1,2), fPythia->GetP(i+1,3), fPythia->GetP(i+1,4));
+    Int_t pdg = TMath::Abs(fPythia->GetK(i+1,2));
+    fDecayerExodus->Decay(pdg+1000*fPythia->GetK(fd+1,2), &pizero);
+    for (Int_t j = 0; j < 3; j++) {
+      for (Int_t k = 0; k < 4; k++) {
+        TLorentzVector vec = (fDecayerExodus->Products_pion())[2-j];
+        fPythia->SetP(fd+j+1,k+1,vec[k]);
+      }
+    }
+  }
+}
+
+void PythiaDecayerConfig::EtaDalitz(){
+  Int_t nt = fPythia->GetN();
+  for (Int_t i = 0; i < nt; i++) {
+    if (fPythia->GetK(i+1,2) != 221) continue;
+    Int_t fd = fPythia->GetK(i+1,4) - 1;
+    Int_t ld = fPythia->GetK(i+1,5) - 1;
+    if (fd < 0) continue;
+    if ((ld - fd) != 2) continue;
+    if ((fPythia->GetK(fd+1,2) != 22) || (TMath::Abs(fPythia->GetK(fd+2,2)) != 11) ) continue;
+    TLorentzVector eta(fPythia->GetP(i+1,1), fPythia->GetP(i+1,2), fPythia->GetP(i+1,3), fPythia->GetP(i+1,4));
+    Int_t pdg = TMath::Abs(fPythia->GetK(i+1,2));
+    fDecayerExodus->Decay(pdg+1000*fPythia->GetK(fd+1,2), &eta);
+    for (Int_t j = 0; j < 3; j++) {
+      for (Int_t k = 0; k < 4; k++) {
+        TLorentzVector vec = (fDecayerExodus->Products_eta())[2-j];
+        fPythia->SetP(fd+j+1,k+1,vec[k]);
+      }
+    }
+  }
+}
+
+void PythiaDecayerConfig::RhoDirect(){
+  Int_t nt = fPythia->GetN();
+  for (Int_t i = 0; i < nt; i++) {
+    if (fPythia->GetK(i+1,2) != 113) continue;
+    Int_t fd = fPythia->GetK(i+1,4) - 1;
+    Int_t ld = fPythia->GetK(i+1,5) - 1;
+    if (fd < 0) continue;
+    if ((ld - fd) != 1) continue;
+    if ((TMath::Abs(fPythia->GetK(fd+1,2)) != 11)) continue;
+    TLorentzVector rho(fPythia->GetP(i+1,1), fPythia->GetP(i+1,2), fPythia->GetP(i+1,3), fPythia->GetP(i+1,4));
+    Int_t pdg = TMath::Abs(fPythia->GetK(i+1,2));
+    fDecayerExodus->Decay(pdg, &rho);
+    for (Int_t j = 0; j < 2; j++) {
+      for (Int_t k = 0; k < 4; k++) {
+        TLorentzVector vec = (fDecayerExodus->Products_rho())[1-j];
+        fPythia->SetP(fd+j+1,k+1,vec[k]);
+      }
+    }
+  }
+}
+
+void PythiaDecayerConfig::OmegaDalitz(){
+  Int_t nt = fPythia->GetN();
+  for (Int_t i = 0; i < nt; i++) {
+    if (fPythia->GetK(i+1,2) != 223) continue;
+    Int_t fd = fPythia->GetK(i+1,4) - 1;
+    Int_t ld = fPythia->GetK(i+1,5) - 1;
+    if (fd < 0) continue;
+    if ((ld - fd) != 2) continue;
+    if ((fPythia->GetK(fd+1,2) != 111) || (TMath::Abs(fPythia->GetK(fd+2,2)) != 11)) continue;
+    TLorentzVector omegadalitz(fPythia->GetP(i+1,1), fPythia->GetP(i+1,2), fPythia->GetP(i+1,3), fPythia->GetP(i+1,4));
+    Int_t pdg = TMath::Abs(fPythia->GetK(i+1,2));
+    fDecayerExodus->Decay(pdg+1000*fPythia->GetK(fd+1,2), &omegadalitz);
+    for (Int_t j = 0; j < 3; j++) {
+      for (Int_t k = 0; k < 4; k++) {
+        TLorentzVector vec = (fDecayerExodus->Products_omega_dalitz())[2-j];
+        fPythia->SetP(fd+j+1,k+1,vec[k]);
+      }
+    }
+  }
+}
+
+void PythiaDecayerConfig::OmegaDirect(){
+  Int_t nt = fPythia->GetN();
+  for (Int_t i = 0; i < nt; i++) {
+    if (fPythia->GetK(i+1,2) != 223) continue;
+    Int_t fd = fPythia->GetK(i+1,4) - 1;
+    Int_t ld = fPythia->GetK(i+1,5) - 1;
+    if (fd < 0) continue;
+    if ((ld - fd) != 1) continue;
+    if ((TMath::Abs(fPythia->GetK(fd+1,2)) != 11)) continue;
+    TLorentzVector omegadirect(fPythia->GetP(i+1,1), fPythia->GetP(i+1,2), fPythia->GetP(i+1,3), fPythia->GetP(i+1,4));
+    Int_t pdg = TMath::Abs(fPythia->GetK(i+1,2));
+    fDecayerExodus->Decay(pdg, &omegadirect);
+    for (Int_t j = 0; j < 2; j++) {
+      for (Int_t k = 0; k < 4; k++) {
+        TLorentzVector vec = (fDecayerExodus->Products_omega())[1-j];
+        fPythia->SetP(fd+j+1,k+1,vec[k]);
+      }
+    }
+  }
+}
+
+void PythiaDecayerConfig::EtaprimeDalitz(){
+  Int_t nt = fPythia->GetN();
+  for (Int_t i = 0; i < nt; i++) {
+    if (fPythia->GetK(i+1,2) != 331) continue;
+    Int_t fd = fPythia->GetK(i+1,4) - 1;
+    Int_t ld = fPythia->GetK(i+1,5) - 1;
+    if (fd < 0) continue;
+    if ((ld - fd) != 2) continue;
+    if ((fPythia->GetK(fd+1,2) != 22 && fPythia->GetK(fd+1,2) != 223) || (TMath::Abs(fPythia->GetK(fd+2,2)) != 11)) continue;
+    TLorentzVector etaprime(fPythia->GetP(i+1,1), fPythia->GetP(i+1,2), fPythia->GetP(i+1,3), fPythia->GetP(i+1,4));
+    Int_t pdg = TMath::Abs(fPythia->GetK(i+1,2));
+    fDecayerExodus->Decay(pdg+1000*fPythia->GetK(fd+1,2), &etaprime);
+    for (Int_t j = 0; j < 3; j++) {
+      for (Int_t k = 0; k < 4; k++) {
+        TLorentzVector vec = (fDecayerExodus->Products_etaprime())[2-j];
+        fPythia->SetP(fd+j+1,k+1,vec[k]);
+      }
+    }
+  }
+}
+
+void PythiaDecayerConfig::PhiDalitz(){
+  Int_t nt = fPythia->GetN();
+  for (Int_t i = 0; i < nt; i++) {
+    if (fPythia->GetK(i+1,2) != 333) continue;
+    Int_t fd = fPythia->GetK(i+1,4) - 1;
+    Int_t ld = fPythia->GetK(i+1,5) - 1;
+    if (fd < 0) continue;
+    if ((ld - fd) != 2) continue;
+    if ((fPythia->GetK(fd+1,2) != 221 && fPythia->GetK(fd+1,2) != 111 ) || (TMath::Abs(fPythia->GetK(fd+2,2)) != 11)) continue;
+    TLorentzVector phidalitz(fPythia->GetP(i+1,1), fPythia->GetP(i+1,2), fPythia->GetP(i+1,3), fPythia->GetP(i+1,4));
+    Int_t pdg = TMath::Abs(fPythia->GetK(i+1,2));
+    fDecayerExodus->Decay(pdg+1000*fPythia->GetK(fd+1,2), &phidalitz);
+    for (Int_t j = 0; j < 3; j++) {
+      for (Int_t k = 0; k < 4; k++) {
+        TLorentzVector vec = (fDecayerExodus->Products_phi_dalitz())[2-j];
+        fPythia->SetP(fd+j+1,k+1,vec[k]);
+      }
+    }
+  }
+}
+
+void PythiaDecayerConfig::PhiDirect(){
+  Int_t nt = fPythia->GetN();
+  for (Int_t i = 0; i < nt; i++) {
+    if (fPythia->GetK(i+1,2) != 333) continue;
+    Int_t fd = fPythia->GetK(i+1,4) - 1;
+    Int_t ld = fPythia->GetK(i+1,5) - 1;
+    if (fd < 0) continue;
+    if ((ld - fd) != 1) continue;
+    if ((TMath::Abs(fPythia->GetK(fd+1,2)) != 11)) continue;
+    TLorentzVector phi(fPythia->GetP(i+1,1), fPythia->GetP(i+1,2), fPythia->GetP(i+1,3), fPythia->GetP(i+1,4));
+    Int_t pdg = TMath::Abs(fPythia->GetK(i+1,2));
+    fDecayerExodus->Decay(pdg, &phi);
+    for (Int_t j = 0; j < 2; j++) {
+      for (Int_t k = 0; k < 4; k++) {
+        TLorentzVector vec = (fDecayerExodus->Products_phi())[1-j];
+        fPythia->SetP(fd+j+1,k+1,vec[k]);
+      }
+    }
+  }
+}
+
+void PythiaDecayerConfig::JPsiDirect(){
+  Int_t nt = fPythia->GetN();
+  for (Int_t i = 0; i < nt; i++) {
+    if (fPythia->GetK(i+1,2) != 443) continue;
+    Int_t fd = fPythia->GetK(i+1,4) - 1;
+    Int_t ld = fPythia->GetK(i+1,5) - 1;
+    if (fd < 0) continue;
+    if ((ld - fd) != 1) continue;
+    if ((TMath::Abs(fPythia->GetK(fd+1,2)) != 11)) continue;
+    TLorentzVector jpsi(fPythia->GetP(i+1,1), fPythia->GetP(i+1,2), fPythia->GetP(i+1,3), fPythia->GetP(i+1,4));
+    Int_t pdg = TMath::Abs(fPythia->GetK(i+1,2));
+    fDecayerExodus->Decay(pdg, &jpsi);
+    for (Int_t j = 0; j < 2; j++) {
+      for (Int_t k = 0; k < 4; k++) {
+        TLorentzVector vec = (fDecayerExodus->Products_jpsi())[1-j];
+        fPythia->SetP(fd+j+1,k+1,vec[k]);
+      }
+    }
+  }
 }
 
 void PythiaDecayerConfig::Copy(TObject &) const {

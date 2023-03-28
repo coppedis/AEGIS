@@ -182,10 +182,10 @@ void GeneratorParam::Init() {
   //
   //
   // Initialize the decayer
+  fDecayer->SetForceDecay(fForceDecay);
   fDecayer->Init();
   // initialise selection of decay products
   InitChildSelect();
-  fDecayerConfig->Init(fForceDecay);
 }
 
 void GeneratorParam::GenerateEvent() {
@@ -193,10 +193,7 @@ void GeneratorParam::GenerateEvent() {
   // Generate one event
   //
   fParticles->Clear();
-  // ??? fDecayer->SetForceDecay(fForceDecay);
-  fDecayer->Init();
-
-  //
+ 
   Float_t polar[3] = {
       0, 0, 0}; // Polarisation of the parent particle (for GEANT tracking)
   Double_t origin0[3]; // Origin of the generated parent particle (for GEANT
@@ -243,7 +240,7 @@ void GeneratorParam::GenerateEvent() {
       // custom pdg codes to destinguish direct photons
       if ((pdg >= 220000) && (pdg <= 220001))
         pdg = 22;
-      fChildWeight=(fDecayerConfig->GetPartialBranchingRatio(pdg))*fParentWeight;
+      fChildWeight=(fDecayer->GetPartialBranchingRatio(pdg))*fParentWeight;
       TParticlePDG *particle = pDataBase->GetParticle(pdg);
       Float_t am = particle->Mass();
       gRandom->RndmArray(2, random);

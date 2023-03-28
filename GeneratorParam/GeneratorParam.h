@@ -92,7 +92,6 @@ public:
   // force decay type
   virtual void SetDeltaPt(Float_t delta = 0.01) { fDeltaPt = delta; }
   virtual void SetDecayer(TVirtualMCDecayer *decayer) { fDecayer = decayer; }
-  virtual void SetDecayerConfig(PythiaDecayerConfig *decayerconfig) {fDecayerConfig = decayerconfig; }
   virtual void SetForceGammaConversion(Bool_t force = kTRUE) {
     fForceConv = force;
   }
@@ -160,7 +159,6 @@ protected:
   Bool_t fSelectAll = false; // Flag for transportation of Background while
                              // using SetForceDecay()
   TVirtualMCDecayer *fDecayer = 0; // ! Pointer to virtual decyer
-  PythiaDecayerConfig *fDecayerConfig = 0; // Pointer to decayer config
   Bool_t fForceConv = false;       // force converson of gammas
   Bool_t fKeepParent =
       false; //  Store parent even if it does not have childs within cuts

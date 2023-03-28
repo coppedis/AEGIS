@@ -12,6 +12,13 @@ find_package(ROOT REQUIRED COMPONENTS EG)
 #---Define useful ROOT functions and macros (e.g. ROOT_GENERATE_DICTIONARY)
 include(${ROOT_USE_FILE})
 
+#---VMC
+# set by VMC standalone, in ROOT case we don't use it
+set(VMC_LIBRARIES)
+if(NOT ROOT_vmc_FOUND)
+  find_package(VMC REQUIRED)
+endif()
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/.)
 
 set(HEADERS GeneratorCosmics.h)
@@ -20,7 +27,7 @@ ROOT_GENERATE_DICTIONARY(G__GeneratorCosmics ${HEADERS} LINKDEF GeneratorCosmics
 
 #---Create a shared library with geneated dictionary
 add_library(GeneratorCosmics SHARED GeneratorCosmics.cxx G__GeneratorCosmics.cxx)
-target_link_libraries(GeneratorCosmics ${ROOT_LIBRARIES})
+target_link_libraries(GeneratorCosmics ${ROOT_LIBRARIES} ${VMC_LIBRARIES})
 
 
 set_target_properties(GeneratorCosmics

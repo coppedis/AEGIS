@@ -12,15 +12,22 @@ find_package(ROOT REQUIRED COMPONENTS EG)
 #---Define useful ROOT functions and macros (e.g. ROOT_GENERATE_DICTIONARY)
 include(${ROOT_USE_FILE})
 
+#---VMC
+# set by VMC standalone, in ROOT case we don't use it
+set(VMC_LIBRARIES)
+if(NOT ROOT_vmc_FOUND)
+  find_package(VMC REQUIRED)
+endif()
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/.)
 
-set(HEADERS GeneratorParam.h GeneratorParamLibBase.h GeneratorParamMUONlib.h GeneratorParamEMlib.h GeneratorParamEMlibV2.h PythiaDecayerConfig.h)
+set(HEADERS GeneratorParam.h GeneratorParamLibBase.h GeneratorParamMUONlib.h GeneratorParamEMlib.h GeneratorParamEMlibV2.h PythiaDecayerConfig.h ExodusDecayer.h)
 
 ROOT_GENERATE_DICTIONARY(G__GeneratorParam ${HEADERS} LINKDEF GeneratorParamLinkDef.h)
 
 #---Create a shared library with geneated dictionary
-add_library(GeneratorParam SHARED GeneratorParam.cxx GeneratorParamLibBase.cxx GeneratorParamMUONlib.cxx GeneratorParamEMlib.cxx GeneratorParamEMlibV2.cxx PythiaDecayerConfig.cxx G__GeneratorParam.cxx)
-target_link_libraries(GeneratorParam ${ROOT_LIBRARIES})
+add_library(GeneratorParam SHARED GeneratorParam.cxx GeneratorParamLibBase.cxx GeneratorParamMUONlib.cxx GeneratorParamEMlib.cxx GeneratorParamEMlibV2.cxx PythiaDecayerConfig.cxx ExodusDecayer.cxx G__GeneratorParam.cxx)
+target_link_libraries(GeneratorParam ${ROOT_LIBRARIES} ${VMC_LIBRARIES})
 
 
 set_target_properties(GeneratorParam

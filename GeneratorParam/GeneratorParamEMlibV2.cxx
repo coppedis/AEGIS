@@ -21,7 +21,7 @@
 #include "GeneratorParamEMlibV2.h"
 #include "TH1D.h"
 #include <TObjString.h>
-
+#include <nlohmann/json.hpp>
 
 ClassImp(GeneratorParamEMlibV2)
 
@@ -1315,65 +1315,124 @@ Double_t GeneratorParamEMlibV2::GetTAA(Int_t cent){
 //--------------------------------------------------------------------------
 Bool_t GeneratorParamEMlibV2::SetPtParametrizations(TString fileName, TString dirName) {
 
-  // open parametrizations file
-  TFile* fParametrizationFile = TFile::Open(fileName.Data());
-  if (!fParametrizationFile) printf("GeneratorParamEMlibV2: ERROR: File %s not found\n",fileName.Data());
-  TDirectory* fParametrizationDir = (TDirectory*)fParametrizationFile->Get(dirName.Data());
-  if (!fParametrizationDir) printf("GeneratorParamEMlibV2: ERROR: Directory %s not found\n",dirName.Data());
+  if (fileName.EndsWith(".root")){ // read the old ROOT file
+    // open parametrizations file
+    TFile* fParametrizationFile = TFile::Open(fileName.Data());
+    if (!fParametrizationFile) printf("GeneratorParamEMlibV2: ERROR: File %s not found\n",fileName.Data());
+    TDirectory* fParametrizationDir = (TDirectory*)fParametrizationFile->Get(dirName.Data());
+    if (!fParametrizationDir) printf("GeneratorParamEMlibV2: ERROR: Directory %s not found\n",dirName.Data());
 
-  // check for pi0 parametrization
-  printf("GeneratorParamEMlibV2: Get pi0 parametrization\n");
-  TF1* fPtParametrizationTemp = (TF1*)fParametrizationDir->Get("111_pt");
-  if (!fPtParametrizationTemp) printf("File %s doesn't contain pi0 parametrization\n",fileName.Data());
-  // function needs to be recreated for ROOT6 compatibility
-  fPtParametrization[0] = new TF1("111_pt",fPtParametrizationTemp->GetExpFormula(),0,300);
-  for (Int_t iparam = 0; iparam < fPtParametrizationTemp->GetNpar(); iparam++ ){
-    fPtParametrization[0]->SetParameter(iparam,fPtParametrizationTemp->GetParameter(iparam));
-  }
-  fPtParametrization[0]->SetName("111_pt");
-
-  // check for proton parametrization (base for baryon mt scaling)
-  printf("GeneratorParamEMlibV2: Get proton parametrization\n");
-  TF1* fPtParametrizationProtonTemp = (TF1*)fParametrizationDir->Get("2212_pt");
-  if (!fPtParametrizationProtonTemp) {
-    printf("GeneratorParamEMlibV2: WARNING: File %s does not contain parametrization, scaling baryons from pi0.\n",fileName.Data());
-    fPtParametrizationProton = NULL;
-  } else {
+    // check for pi0 parametrization
+    printf("GeneratorParamEMlibV2: Get pi0 parametrization\n");
+    TF1* fPtParametrizationTemp = (TF1*)fParametrizationDir->Get("111_pt");
+    if (!fPtParametrizationTemp) printf("File %s doesn't contain pi0 parametrization\n",fileName.Data());
     // function needs to be recreated for ROOT6 compatibility
-    fPtParametrizationProton = new TF1("2212_pt",fPtParametrizationProtonTemp->GetExpFormula(),0,300);
-    for (Int_t iparam = 0; iparam < fPtParametrizationProtonTemp->GetNpar(); iparam++ ){
-      fPtParametrizationProton->SetParameter(iparam,fPtParametrizationProtonTemp->GetParameter(iparam));
+    fPtParametrization[0] = new TF1("111_pt",fPtParametrizationTemp->GetExpFormula(),0,300);
+    for (Int_t iparam = 0; iparam < fPtParametrizationTemp->GetNpar(); iparam++ ){
+      fPtParametrization[0]->SetParameter(iparam,fPtParametrizationTemp->GetParameter(iparam));
     }
-    fPtParametrizationProton->SetName("2212_pt");
-  }
+    fPtParametrization[0]->SetName("111_pt");
 
-  GeneratorParamEMlibV2 lib;
-  TRandom* rndm=NULL;
-
-  // get parametrizations from file
-  for (Int_t i=1; i<26; i++) {
-    Int_t ip = (Int_t)(lib.GetIp(i, ""))(rndm);
-    printf("GeneratorParamEMlibV2: Get %d parametrization.\n",ip);
-    fPtParametrizationTemp = (TF1*)fParametrizationDir->Get(Form("%d_pt", ip));
-    if (fPtParametrizationTemp) {
-      // function needs to be recreated for ROOT6 compatibility
-      fPtParametrization[i] = new TF1(Form("%d_pt", ip),fPtParametrizationTemp->GetExpFormula(),0,300);
-      for (Int_t iparam = 0; iparam < fPtParametrizationTemp->GetNpar(); iparam++ ){
-        fPtParametrization[i]->SetParameter(iparam,fPtParametrizationTemp->GetParameter(iparam));
-      }
-      fPtParametrization[i]->SetName(Form("%d_pt", ip));
+    // check for proton parametrization (base for baryon mt scaling)
+    printf("GeneratorParamEMlibV2: Get proton parametrization\n");
+    TF1* fPtParametrizationProtonTemp = (TF1*)fParametrizationDir->Get("2212_pt");
+    if (!fPtParametrizationProtonTemp) {
+      printf("GeneratorParamEMlibV2: WARNING: File %s does not contain parametrization, scaling baryons from pi0.\n",fileName.Data());
+      fPtParametrizationProton = NULL;
     } else {
-      if (i==7 || i==9 || i==10 || i==11 || i==12 || i==17 || (i>=20 && i<=25))
-        fPtParametrization[i] = (TF1*)MtScal(i, Form("%d_pt_mtScaled", ip), 0);
-      else
-        fPtParametrization[i] = (TF1*)MtScal(i, Form("%d_pt_mtScaled", ip), 1);
+      // function needs to be recreated for ROOT6 compatibility
+      fPtParametrizationProton = new TF1("2212_pt",fPtParametrizationProtonTemp->GetExpFormula(),0,300);
+      for (Int_t iparam = 0; iparam < fPtParametrizationProtonTemp->GetNpar(); iparam++ ){
+        fPtParametrizationProton->SetParameter(iparam,fPtParametrizationProtonTemp->GetParameter(iparam));
+      }
+      fPtParametrizationProton->SetName("2212_pt");
     }
+
+    GeneratorParamEMlibV2 lib;
+    TRandom* rndm=NULL;
+
+    // get parametrizations from file
+    for (Int_t i=1; i<26; i++) {
+      Int_t ip = (Int_t)(lib.GetIp(i, ""))(rndm);
+      printf("GeneratorParamEMlibV2: Get %d parametrization.\n",ip);
+      fPtParametrizationTemp = (TF1*)fParametrizationDir->Get(Form("%d_pt", ip));
+      if (fPtParametrizationTemp) {
+        // function needs to be recreated for ROOT6 compatibility
+        fPtParametrization[i] = new TF1(Form("%d_pt", ip),fPtParametrizationTemp->GetExpFormula(),0,300);
+        for (Int_t iparam = 0; iparam < fPtParametrizationTemp->GetNpar(); iparam++ ){
+          fPtParametrization[i]->SetParameter(iparam,fPtParametrizationTemp->GetParameter(iparam));
+        }
+        fPtParametrization[i]->SetName(Form("%d_pt", ip));
+      } else {
+        if (i==7 || i==9 || i==10 || i==11 || i==12 || i==17 || (i>=20 && i<=25))
+          fPtParametrization[i] = (TF1*)MtScal(i, Form("%d_pt_mtScaled", ip), 0);
+        else
+          fPtParametrization[i] = (TF1*)MtScal(i, Form("%d_pt_mtScaled", ip), 1);
+      }
+    }
+
+    fParametrizationFile->Close();
+    delete fParametrizationFile;
+
+    return kTRUE;
   }
+  else{ // read the JSON file        
+    // open parametrizations file
+    std::ifstream file(fileName.Data());
+    if (!file){
+      printf("GeneratorParamEMlibV2: ERROR: File %s not found\n",fileName.Data());
+      return kFALSE;
+    }
+    nlohmann::json paramfile = nlohmann::json::parse(file);
+    if (!paramfile.contains(dirName.Data())) {
+      printf("GeneratorParamEMlibV2: ERROR: Directory %s not found\n",dirName.Data());
+      return kFALSE;
+    } 
+    nlohmann::json dir = paramfile[dirName.Data()];
 
-  fParametrizationFile->Close();
-  delete fParametrizationFile;
 
-  return kTRUE;
+    // check for pi0 parametrization
+    printf("GeneratorParamEMlibV2: Get pi0 parametrization\n");
+    if (!dir.contains("111_pt")){
+      printf("GeneratorParamEMlibV2: ERROR: File %s doesn't contain pi0 parametrization\n",fileName.Data());
+      return kFALSE;
+    }
+    std::string name = "111_pt";
+    std::string formula = dir[name];
+    fPtParametrization[0] = new TF1(TString(name),TString(formula),0,300);
+
+    // check for proton parametrization (base for baryon mt scaling)
+    printf("GeneratorParamEMlibV2: Get proton parametrization\n");
+    if (!dir.contains("2212_pt")) {
+      printf("GeneratorParamEMlibV2: WARNING: File %s does not contain parametrization, scaling baryons from pi0.\n",fileName.Data());
+      fPtParametrizationProton = NULL;
+    } else {
+      name = "2212_pt";
+      formula = dir[name];
+      fPtParametrizationProton = new TF1(TString(name),TString(formula),0,300);
+    }
+
+    GeneratorParamEMlibV2 lib;
+    TRandom* rndm=NULL;
+
+    // get parametrizations from file
+    for (Int_t i=1; i<26; i++) {
+      Int_t ip = (Int_t)(lib.GetIp(i, ""))(rndm);
+      printf("GeneratorParamEMlibV2: Get %d parametrization.\n",ip);
+      name = Form("%d_pt", ip);
+      if (dir.contains(name)) {
+        formula = dir[name];
+        fPtParametrization[i] = new TF1(TString(name),TString(formula),0,300);
+      } else {
+        if (i==7 || i==9 || i==10 || i==11 || i==12 || i==17 || (i>=20 && i<=25))
+          fPtParametrization[i] = (TF1*)MtScal(i, Form("%d_pt_mtScaled", ip), 0);
+        else
+          fPtParametrization[i] = (TF1*)MtScal(i, Form("%d_pt_mtScaled", ip), 1);
+      }
+    }
+
+    return kTRUE;
+  }
 }
 
 //--------------------------------------------------------------------------
@@ -1387,58 +1446,118 @@ Bool_t GeneratorParamEMlibV2::SetFlowParametrizations(TString fileName, TString 
     return kTRUE;
   }
 
+  if (fileName.EndsWith(".root")){ //read the old ROOT file
+    TFile* fV2ParametrizationFile = TFile::Open(fileName.Data());
+    if (!fV2ParametrizationFile) printf("GeneratorParamEMlibV2: ERROR: File %s not found\n",fileName.Data());
+    TDirectory* fV2ParametrizationDir = (TDirectory*)fV2ParametrizationFile->Get(dirName.Data());
+    if (!fV2ParametrizationDir) printf("GeneratorParamEMlibV2: ERROR: Directory %s not found\n",dirName.Data());
     
-  TFile* fV2ParametrizationFile = TFile::Open(fileName.Data());
-  if (!fV2ParametrizationFile) printf("GeneratorParamEMlibV2: ERROR: File %s not found\n",fileName.Data());
-  TDirectory* fV2ParametrizationDir = (TDirectory*)fV2ParametrizationFile->Get(dirName.Data());
-  if (!fV2ParametrizationDir) printf("GeneratorParamEMlibV2: ERROR: Directory %s not found\n",dirName.Data());
-  
-  
-  // check for pi0 parametrization
-  TF1* fv2ParametrizationPi0 = (TF1*)fV2ParametrizationDir->Get("111_v2_def");
-  if (!fv2ParametrizationPi0) printf("GeneratorParamEMlibV2: ERROR: File %s, dir %s doesn't contain pi0 parametrization\n",fileName.Data(),dirName.Data());
-  fV2Parametrization[0] = new TF1(*fv2ParametrizationPi0);
-  fV2Parametrization[0]->SetName("111_v2_def");
     
+    // check for pi0 parametrization
+    TF1* fv2ParametrizationPi0 = (TF1*)fV2ParametrizationDir->Get("111_v2_def");
+    if (!fv2ParametrizationPi0) printf("GeneratorParamEMlibV2: ERROR: File %s, dir %s doesn't contain pi0 parametrization\n",fileName.Data(),dirName.Data());
+    fV2Parametrization[0] = new TF1(*fv2ParametrizationPi0);
+    fV2Parametrization[0]->SetName("111_v2_def");
+      
 
-  // check for kaon parametrization (base for eta/omega mt scaling)
-  TF1* fv2ParametrizationK = (TF1*)fV2ParametrizationDir->Get("310_v2_def");
-  if (!fv2ParametrizationK) {
-    printf("GeneratorParamEMlibV2: WARNING: File %s, dir %s does not contain kaon parametrization, scaling v2 mesons from pi0.\n",fileName.Data(),dirName.Data());
-    fv2ParametrizationK = NULL;
-  }
-  
-  GeneratorParamEMlibV2 lib;
-  TRandom* rndm=NULL;
+    // check for kaon parametrization (base for eta/omega mt scaling)
+    TF1* fv2ParametrizationK = (TF1*)fV2ParametrizationDir->Get("310_v2_def");
+    if (!fv2ParametrizationK) {
+      printf("GeneratorParamEMlibV2: WARNING: File %s, dir %s does not contain kaon parametrization, scaling v2 mesons from pi0.\n",fileName.Data(),dirName.Data());
+      fv2ParametrizationK = NULL;
+    }
+    
+    GeneratorParamEMlibV2 lib;
+    TRandom* rndm=NULL;
 
-  // get parametrizations from file
-  for (Int_t i=1; i<27; i++) {
-    Int_t ip = (Int_t)(lib.GetIp(i, ""))(rndm);
-    TF1* fv2ParametrizationTemp = (TF1*)fV2ParametrizationDir->Get(Form("%d_v2_def", ip));
-    if (fv2ParametrizationTemp) { //Parameterization stored in the file
-      fV2Parametrization[i] = new TF1(*fv2ParametrizationTemp);
-      fV2Parametrization[i]->SetName(Form("%d_v2_def", ip));
-      fV2RefParameterization[i]=i; //same ref. particle
+    // get parametrizations from file
+    for (Int_t i=1; i<27; i++) {
+      Int_t ip = (Int_t)(lib.GetIp(i, ""))(rndm);
+      TF1* fv2ParametrizationTemp = (TF1*)fV2ParametrizationDir->Get(Form("%d_v2_def", ip));
+      if (fv2ParametrizationTemp) { //Parameterization stored in the file
+        fV2Parametrization[i] = new TF1(*fv2ParametrizationTemp);
+        fV2Parametrization[i]->SetName(Form("%d_v2_def", ip));
+        fV2RefParameterization[i]=i; //same ref. particle
+      } else {
+        if(fv2ParametrizationK){  
+          //Use EKt-scaling from Kaon flow  
+          fV2Parametrization[i] = new TF1(*fv2ParametrizationK) ;
+          fV2Parametrization[i]->SetName(Form("%d_v2_def", ip));
+          fV2RefParameterization[i]=kK0s ; //remember kind of hadron used for parametrization for Etscaling
+         }
+         else{
+          //Use EKt-scaling from pion flow  
+          fV2Parametrization[i] = new TF1(*fv2ParametrizationPi0) ;
+          fV2Parametrization[i]->SetName(Form("%d_v2_def", ip));
+          fV2RefParameterization[i]=kPizero ; //remember kind of hadron used for parametrization for Etscaling
+         }
+      }
+    }
+
+    fV2ParametrizationFile->Close();
+    delete fV2ParametrizationFile;
+
+    return kTRUE;
+  } 
+  else{ // read the JSON file
+    std::ifstream file(fileName.Data());
+    if (!file){
+      printf("GeneratorParamEMlibV2: ERROR: File %s not found\n",fileName.Data());
+      return kFALSE;
+    }
+    nlohmann::json paramfile = nlohmann::json::parse(file);
+    if (!paramfile.contains(dirName.Data())) {
+      printf("GeneratorParamEMlibV2: ERROR: Directory %s not found\n",dirName.Data());
+      return kFALSE;
+    } 
+    nlohmann::json dir = paramfile[dirName.Data()];
+    
+    // check for pi0 parametrization
+    if (!dir.contains("111_v2_def")){
+      printf("GeneratorParamEMlibV2: ERROR: File %s, dir %s doesn't contain pi0 parametrization\n",fileName.Data(),dirName.Data());
+      return kFALSE;
+    }
+    std::string formula = dir["111_v2_def"];
+    fV2Parametrization[0] = new TF1("111_v2_def",TString(formula),0.,200.); //todo: check range
+      
+
+    // check for kaon parametrization (base for eta/omega mt scaling)
+    TF1* fv2ParametrizationK = new TF1();
+    if (!dir.contains("310_v2_def")){
+      printf("GeneratorParamEMlibV2: WARNING: File %s, dir %s does not contain kaon parametrization, scaling v2 mesons from pi0.\n",fileName.Data(),dirName.Data());
+      fv2ParametrizationK = NULL;
     } else {
-      if(fv2ParametrizationK){  
-        //Use EKt-scaling from Kaon flow  
+      formula = dir["310_v2_def"];
+      fv2ParametrizationK = new TF1("310_v2_def",TString(formula),0.,200.); //todo: check range
+    }
+
+    
+    GeneratorParamEMlibV2 lib;
+    TRandom* rndm=NULL;
+
+    // get parametrizations from file
+    for (Int_t i=1; i<27; i++) {
+      Int_t ip = (Int_t)(lib.GetIp(i, ""))(rndm);
+
+      std::string name = Form("%d_v2_def", ip);
+      if (dir.contains(name)){ //Parameterization stored in the file
+        formula = dir[name];
+        fV2Parametrization[i] = new TF1(TString(name),TString(formula),0.,200.); //todo: check range
+        fV2RefParameterization[i]=i; //same ref. particle
+      } else if (fv2ParametrizationK){
+        //Use EKt-scaling from Kaon flow
         fV2Parametrization[i] = new TF1(*fv2ParametrizationK) ;
         fV2Parametrization[i]->SetName(Form("%d_v2_def", ip));
         fV2RefParameterization[i]=kK0s ; //remember kind of hadron used for parametrization for Etscaling
-       }
-       else{
-        //Use EKt-scaling from pion flow  
-        fV2Parametrization[i] = new TF1(*fv2ParametrizationPi0) ;
+      } else {
+        //Use EKt-scaling from pion flow 
+        fV2Parametrization[i] = new TF1(*fV2Parametrization[0]) ;
         fV2Parametrization[i]->SetName(Form("%d_v2_def", ip));
         fV2RefParameterization[i]=kPizero ; //remember kind of hadron used for parametrization for Etscaling
-       }
+      }
     }
-  }
-
-  fV2ParametrizationFile->Close();
-  delete fV2ParametrizationFile;
-  return kTRUE;
-    
+    return kTRUE;
+  } 
 }
 
 //--------------------------------------------------------------------------
@@ -1486,9 +1605,6 @@ void GeneratorParamEMlibV2::SetMtScalingFactors(TString fileName, TString dirNam
       printf("<GeneratorParamEMlibV2::SetMtScalingFactors> no collision system has been given\n");
   }
 
-  // open file
-  TFile*        fMtFactorFile = TFile::Open(fileName.Data());
-  TDirectory*   fMtFactorDir  = (TDirectory*)fMtFactorFile->Get(dirName.Data());
 
   // set bin labels
   fMtFactorHisto = new TH1D("histoMtScaleFactor", "", 26, 0.5, 26.5);
@@ -1521,33 +1637,71 @@ void GeneratorParamEMlibV2::SetMtScalingFactors(TString fileName, TString dirNam
   fMtFactorHisto->GetXaxis()->SetBinLabel(26,"3114");
   fMtFactorHisto->SetDirectory(0);
 
-  // check for mt scaling factor histo
-  TH1D*             fMtFactorHistoTemp = NULL;
-  if (fMtFactorDir) fMtFactorHistoTemp = (TH1D*)fMtFactorDir->Get("histoMtScaleFactor");
-  if (fMtFactorHistoTemp) {
-    GeneratorParamEMlibV2 lib;
-    TRandom* rndm=NULL;
+  if (fileName.EndsWith(".root")){ //read the old ROOT files
+    // open file
+    TFile*        fMtFactorFile = TFile::Open(fileName.Data());
+    TDirectory*   fMtFactorDir  = (TDirectory*)fMtFactorFile->Get(dirName.Data());
+
+    // check for mt scaling factor histo
+    TH1D*             fMtFactorHistoTemp = NULL;
+    if (fMtFactorDir) fMtFactorHistoTemp = (TH1D*)fMtFactorDir->Get("histoMtScaleFactor");
+    if (fMtFactorHistoTemp) {
+      GeneratorParamEMlibV2 lib;
+      TRandom* rndm=NULL;
+      for (Int_t i=0; i<26; i++) {
+        Int_t ip = (Int_t)(lib.GetIp(i, ""))(rndm);
+        Double_t factor = 0.;
+        for (Int_t j=1; j<fMtFactorHistoTemp->GetNbinsX()+1; j++) {
+          factor = 0.;
+          TString tempLabel = Form("%s", fMtFactorHistoTemp->GetXaxis()->GetBinLabel(j));
+          if (tempLabel.Atoi()==ip) {
+            factor = fMtFactorHistoTemp->GetBinContent(j);
+            break;
+          }
+        }
+        if (factor>0) fMtFactorHisto->SetBinContent(i+1, factor);
+        else          fMtFactorHisto->SetBinContent(i+1, fgkMtFactor[selectedCol][i]);
+      }
+    } else {
+      for (Int_t i=1; i<27; i++)
+        fMtFactorHisto->SetBinContent(i, fgkMtFactor[selectedCol][i-1]);
+    }
+
+    fMtFactorFile->Close();
+    delete fMtFactorFile;
+  }
+  else{ // read the JSON file
     for (Int_t i=0; i<26; i++) {
-      Int_t ip = (Int_t)(lib.GetIp(i, ""))(rndm);
-      Double_t factor = 0.;
-      for (Int_t j=1; j<fMtFactorHistoTemp->GetNbinsX()+1; j++) {
-        factor = 0.;
-        TString tempLabel = Form("%s", fMtFactorHistoTemp->GetXaxis()->GetBinLabel(j));
-        if (tempLabel.Atoi()==ip) {
-          factor = fMtFactorHistoTemp->GetBinContent(j);
-          break;
+      fMtFactorHisto->SetBinContent(i+1, fgkMtFactor[selectedCol][i]); //first set all factors to hard coded value
+    }
+
+    std::ifstream file(fileName.Data());
+    if (file){
+      nlohmann::json paramFile = nlohmann::json::parse(file);
+      if (paramFile.contains(dirName.Data())) {
+        nlohmann::json dir = paramFile[dirName.Data()];
+        if (dir.contains("histoMtScaleFactor")){
+          GeneratorParamEMlibV2 lib;
+          TRandom* rndm=NULL;
+          for (Int_t i=0; i<26; i++) {
+            Int_t ip = (Int_t)(lib.GetIp(i, ""))(rndm);
+            Double_t factor = -999.;
+            nlohmann::json hist = dir["histoMtScaleFactor"];
+            for (auto& bin : hist.items()){
+              TString tempLabel = bin.key();
+              if (tempLabel.Atoi()==ip) {
+                factor = bin.value();
+                break;
+              }
+            }
+            if (factor>0){
+              fMtFactorHisto->SetBinContent(i+1, factor);
+            }
+          }
         }
       }
-      if (factor>0) fMtFactorHisto->SetBinContent(i+1, factor);
-      else          fMtFactorHisto->SetBinContent(i+1, fgkMtFactor[selectedCol][i]);
     }
-  } else {
-    for (Int_t i=1; i<27; i++)
-      fMtFactorHisto->SetBinContent(i, fgkMtFactor[selectedCol][i-1]);
   }
-
-  fMtFactorFile->Close();
-  delete fMtFactorFile;
 }
 
 
@@ -1568,38 +1722,80 @@ TH1D* GeneratorParamEMlibV2::GetMtScalingFactors() {
 //--------------------------------------------------------------------------
 Bool_t GeneratorParamEMlibV2::SetPtYDistributions(TString fileName, TString dirName) {
 
-  // open parametrizations file
-  TFile* fPtYDistributionFile       = TFile::Open(fileName.Data());
-  if (!fPtYDistributionFile) printf("GeneratorParamEMlibV2: ERROR: File %s not found\n",fileName.Data());
+  if (fileName.EndsWith(".root")){ // read the old ROOT files
+    // open parametrizations file
+    TFile* fPtYDistributionFile       = TFile::Open(fileName.Data());
+    if (!fPtYDistributionFile) printf("GeneratorParamEMlibV2: ERROR: File %s not found\n",fileName.Data());
 
-  TObjArray *arr                    = dirName.Tokenize("_");
-  TString ptYDirName                = ((TObjString*)arr->At(0))->GetString();
+    TObjArray *arr                    = dirName.Tokenize("_");
+    TString ptYDirName                = ((TObjString*)arr->At(0))->GetString();
 
-  TDirectory* fPtYDistributionDir   = (TDirectory*)fPtYDistributionFile->Get(ptYDirName.Data());
-  if (!fPtYDistributionDir) printf("GeneratorParamEMlibV2: ERROR: Directory %s not found\n",ptYDirName.Data());
+    TDirectory* fPtYDistributionDir   = (TDirectory*)fPtYDistributionFile->Get(ptYDirName.Data());
+    if (!fPtYDistributionDir) printf("GeneratorParamEMlibV2: ERROR: Directory %s not found\n",ptYDirName.Data());
 
-  // check for pt-y parametrizations
-  GeneratorParamEMlibV2 lib;
-  TRandom* rndm=NULL;
-  TH2F* ptYTemp = NULL;
-  for (Int_t i=0; i<26; i++) {
-    Int_t ip = (Int_t)(lib.GetIp(i, ""))(rndm);
-    ptYTemp = (TH2F*)fPtYDistributionDir->Get(Form("%d_pt_y", ip));
-    if (ptYTemp) {
-      fPtYDistribution[i] = new TH2F(*ptYTemp);
-      fPtYDistribution[i]->SetName(Form("%d_pt_y", ip));
-      fPtYDistribution[i]->SetDirectory(0);
-    } else {
-      fPtYDistribution[i] = NULL;
+    // check for pt-y parametrizations
+    GeneratorParamEMlibV2 lib;
+    TRandom* rndm=NULL;
+    TH2F* ptYTemp = NULL;
+    for (Int_t i=0; i<26; i++) {
+      Int_t ip = (Int_t)(lib.GetIp(i, ""))(rndm);
+      ptYTemp = (TH2F*)fPtYDistributionDir->Get(Form("%d_pt_y", ip));
+      if (ptYTemp) {
+        fPtYDistribution[i] = new TH2F(*ptYTemp);
+        fPtYDistribution[i]->SetName(Form("%d_pt_y", ip));
+        fPtYDistribution[i]->SetDirectory(0);
+      } else {
+        fPtYDistribution[i] = NULL;
+      }
     }
+
+    if (!fPtYDistribution[0]) printf("GeneratorParamEMlibV2: ERROR: File %s doesn't contain pi0 pt-y distribution\n",fileName.Data());
+
+    fPtYDistributionFile->Close();
+    delete fPtYDistributionFile;
+
+    return kTRUE;
   }
+  else{ // read the JSON file
+    std::ifstream file(fileName.Data());
+    if (!file){
+      printf("GeneratorParamEMlibV2: ERROR: File %s not found\n",fileName.Data());
+      return kFALSE;
+    }
+    nlohmann::json paramFile = nlohmann::json::parse(file);
+    if (!paramFile.contains(dirName.Data())) {
+      printf("GeneratorParamEMlibV2: ERROR: Directory %s not found\n",dirName.Data());
+      return kFALSE;
+    }
+    nlohmann::json dir = paramFile[dirName.Data()];
+    // check for pt-y parametrizations
+    GeneratorParamEMlibV2 lib;
+    TRandom* rndm=NULL;
+    for (Int_t i=0; i<26; i++) {
+      Int_t ip = (Int_t)(lib.GetIp(i, ""))(rndm);
+      std::string name = Form("%d_pt_y", ip);
+      if (dir.contains(name)) {
+        printf("GeneratorParamEMlibV2: Reading PtYDistribution %d_pt_y from %s\n",ip,fileName.Data());
+        nlohmann::json histo = dir[name];
+        std::vector<double> ptBins = histo["ptBins"];
+        std::vector<double> yBins = histo["yBins"];
+        int nPtBins = ptBins.size()-1;
+        int nYBins = yBins.size()-1;
+        fPtYDistribution[i] = new TH2F(Form("%d_pt_y", ip),Form("%d_pt_y", ip),nPtBins,&ptBins[0],nYBins,&yBins[0]);
+        std::vector<std::vector<double>> weights = histo["weights"];
+        for (int ptBin=1;ptBin<nPtBins+1;ptBin++){
+          for (int yBin=1;yBin<nYBins+1;yBin++){
+            fPtYDistribution[i]->SetBinContent(ptBin,yBin,weights[ptBin-1][yBin-1]);
+          }
+        }
+      } else {
+        fPtYDistribution[i] = NULL;
+      }
+    }
 
-  if (!fPtYDistribution[0]) printf("GeneratorParamEMlibV2: ERROR: File %s doesn't contain pi0 pt-y distribution\n",fileName.Data());
-
-  fPtYDistributionFile->Close();
-  delete fPtYDistributionFile;
-
-  return kTRUE;
+    if (!fPtYDistribution[0]) printf("GeneratorParamEMlibV2: ERROR: File %s doesn't contain pi0 pt-y distribution\n",fileName.Data());
+    return kTRUE;
+  }
 }
 
 
