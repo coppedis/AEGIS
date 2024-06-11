@@ -149,6 +149,7 @@ void GeneratorParam::Init() {
   if (fdNdPhi)
     fdNdPhi->Delete();
   fdNdPhi = new TF1(name, "1+2*[0]*TMath::Cos(2*(x-[1]))", fPhiMin, fPhiMax);
+
   //
   //
   snprintf(name, 256, "pt-for-%s", GetName());
@@ -238,8 +239,9 @@ void GeneratorParam::GenerateEvent() {
       Int_t iTemp = pdg;
 
       // custom pdg codes to destinguish direct photons
-      if ((pdg >= 220000) && (pdg <= 220001))
+      if ((pdg >= 220000) && (pdg <= 220001)) {
         pdg = 22;
+      }
       fChildWeight=(fDecayer->GetPartialBranchingRatio(pdg))*fParentWeight;
       TParticlePDG *particle = pDataBase->GetParticle(pdg);
       Float_t am = particle->Mass();
@@ -248,12 +250,21 @@ void GeneratorParam::GenerateEvent() {
       // --- For Exodus -------------------------------
       Double_t awidth = particle->Width();
       if (awidth > 0) {
-        TF1 rbw("rbw",
-                "pow([1],2)*pow([0],2)/(pow(x*x-[0]*[0],2)+pow(x*x*[1]/[0],2))",
-                am - 5 * awidth, am + 5 * awidth);
-        rbw.SetParameter(0, am);
-        rbw.SetParameter(1, awidth);
-        am = rbw.GetRandom();
+	TF1* rbw = nullptr;
+	auto iter = fPDGtoTF1.find(pdg);
+        if (iter != fPDGtoTF1.end()) {
+	  // see if we have cached TF1 for this pdg
+          rbw = iter->second.get();
+	}
+	else {
+	  // otherwise create it
+	  fPDGtoTF1[pdg] = std::make_unique<TF1>("rbw",
+                                                 "pow([1],2)*pow([0],2)/(pow(x*x-[0]*[0],2)+pow(x*x*[1]/[0],2))", am - 5 * awidth, am + 5 * awidth);
+	  fPDGtoTF1[pdg]->SetParameter(0, am);
+	  fPDGtoTF1[pdg]->SetParameter(1, awidth);
+	  rbw = fPDGtoTF1[pdg].get();
+	}
+        am = rbw->GetRandom();
       }
       // -----------------------------------------------//
 
@@ -280,9 +291,17 @@ void GeneratorParam::GenerateEvent() {
       }
       //
       // phi
+
+      // set the right parameters for fdNdPhi
       double v2 = fV2Para->Eval(pt);
-      fdNdPhi->SetParameter(0, v2);
-      fdNdPhi->SetParameter(1, fEvPlane);
+      if (fdNdPhi->GetParameter(0) != v2) {
+	// we should avoid calling SetParam as this invalidates the
+	// internal integral cache of TF1
+        fdNdPhi->SetParameter(0, v2);
+      }
+      if (fdNdPhi->GetParameter(1) != fEvPlane) {
+        fdNdPhi->SetParameter(1, fEvPlane);
+      }
       phi = fdNdPhi->GetRandom();
       pl = xmt * ty / sqrt((1. - ty) * (1. + ty));
       theta = TMath::ATan2(pt, pl);
@@ -816,7 +835,7 @@ double GeneratorParam::RandomEnergyFraction(double Z, double photonEnergy) {
       fZ += 8 * fcZ;
 
     // Limits of the screening variable
-    double screenFactor = 136. * epsilon0Local / pow(Z, 1 / 3);
+    double screenFactor = 136. * epsilon0Local / std::cbrt(Z);
     double screenMax = exp((42.24 - fZ) / 8.368) - 0.952;
     double screenMin = std::min(4. * screenFactor, screenMax);
 
@@ -836,7 +855,7 @@ double GeneratorParam::RandomEnergyFraction(double Z, double photonEnergy) {
 
     do {
       if (normF1 / (normF1 + normF2) > gRandom->Rndm()) {
-        epsilon = 0.5 - epsilonRange * pow(gRandom->Rndm(), 0.333333);
+        epsilon = 0.5 - epsilonRange * std::cbrt(gRandom->Rndm());
         screen = screenFactor / (epsilon * (1. - epsilon));
         gReject = (ScreenFunction1(screen) - fZ) / f10;
       } else {

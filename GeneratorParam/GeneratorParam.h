@@ -23,6 +23,7 @@
 #include <TMath.h>
 #include <TVector3.h>
 #include <TVirtualMCDecayer.h>
+#include <map>
 class TF1;
 typedef enum { kNoSmear, kPerEvent, kPerTrack } VertexSmear_t;
 typedef enum { kAnalog, kNonAnalog } Weighting_t;
@@ -214,6 +215,8 @@ protected:
     kMomentumRange = BIT(19),
     kEtaRange = BIT(20)
   };
+
+  std::map<int, std::unique_ptr<TF1>> fPDGtoTF1; //! map of cache TF1 objects for "exodus"
 
 private:
   void InitChildSelect();
