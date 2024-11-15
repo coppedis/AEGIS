@@ -109,7 +109,7 @@ TGenEpEmv1::~TGenEpEmv1()
 }
 
 //____________________________________________________________
-void TGenEpEmv1::Init()
+bool TGenEpEmv1::Init()
 {
   // Initialisation:
   // 1) define a generator
@@ -124,9 +124,10 @@ void TGenEpEmv1::Init()
   double err = 0;
   fXSection = CalcXSection(fXSectionEps,fMinXSTest,fMaxXSTest,err);
   if (fXSection<=0 || err/fXSection>fXSectionEps) {
-    abort();
+    return false;
   }
   fXSectionEps = err/fXSection;
+  return true;
 }
 
 //____________________________________________________________

@@ -21,10 +21,10 @@ class TGenEpEmv1 : public TEpEmGen {
   
  public:
   TGenEpEmv1();
-  virtual ~TGenEpEmv1();
+  ~TGenEpEmv1() override;
 
-  virtual void GenerateEvent();
-  virtual void Init();
+  void GenerateEvent() override; // interface of TGenerator
+  bool Init(); // init function; returns true if successful; false otherwise
   void SetDebug(Int_t debug) {fDebug=debug;}
   void SetYRange(Double_t min, Double_t max) {fYMin = min; fYMax = max;};
   void SetPtRange(Double_t min, Double_t max) {fPtMin = min; fPtMax = max;};

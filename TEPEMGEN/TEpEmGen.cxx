@@ -78,6 +78,7 @@ TEpEmGen::~TEpEmGen()
   // Destroys the object, deletes and disposes all TParticles currently on list.
   fParticles->Delete();
   delete fParticles;
+  fParticles = nullptr; // to prevent double deletion with TGenerator destructor
 }
 
 //______________________________________________________________________________

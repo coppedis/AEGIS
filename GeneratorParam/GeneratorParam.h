@@ -23,6 +23,7 @@
 #include <TMath.h>
 #include <TVector3.h>
 #include <TVirtualMCDecayer.h>
+#include <map>
 class TF1;
 typedef enum { kNoSmear, kPerEvent, kPerTrack } VertexSmear_t;
 typedef enum { kAnalog, kNonAnalog } Weighting_t;
@@ -105,6 +106,8 @@ public:
     fPreserveFullDecayChain = preserve;
   } // Prevent flagging(/skipping) of decay daughter particles; preserves
     // complete forced decay chain
+
+  virtual void SetWeighting(Weighting_t flag = kAnalog) {fAnalog = flag;}
 
   virtual void Draw(const char *opt);
   TF1 *GetPt() { return fPtPara; }
@@ -196,6 +199,13 @@ protected:
   Float_t fChildThetaMax = 0.;
   Float_t fChildPhiMin = 0.;
   Float_t fChildPhiMax = 0.;
+  Float_t fParentWeight = 1.;
+  Float_t fChildWeight = 1.;
+  Float_t fYWgt = 1.;
+  Float_t fPtWgt = 1.;
+  Float_t fdNdy0 = 1.;
+  Weighting_t fAnalog = kAnalog;
+  
   TArrayI fChildSelect; //! Decay products to be selected
   enum {
     kThetaRange = BIT(14),
@@ -206,12 +216,13 @@ protected:
     kEtaRange = BIT(20)
   };
 
+  std::map<int, std::unique_ptr<TF1>> fPDGtoTF1; //! map of cache TF1 objects for "exodus"
+
 private:
   void InitChildSelect();
   GeneratorParam(const GeneratorParam &Param);
   GeneratorParam &operator=(const GeneratorParam &rhs);
 
-  ClassDef(GeneratorParam,
-           1) // Generator using parameterised pt- and y-distribution
+  ClassDef(GeneratorParam, 2) // Generator using parameterised pt- and y-distribution
 };
 #endif
